@@ -1,0 +1,37 @@
+{
+  "name": "coffeescope",
+  "version": "0.1.0",
+  "description": "Scans CoffeeScript to locate all scopes, variables, and references",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "jest": {
+    "scriptPreprocessor": "preprocessor.js",
+    "testFileExtensions": [
+      "coffee",
+      "js"
+    ],
+    "unmockedModulePathPatterns": [
+      "node_modules/globals"
+    ]
+  },
+
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AsaAyers/coffeescope.git"
+  },
+  "author": "Asa Ayers <Asa@AsaAyers.com>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/AsaAyers/coffeescope/issues"
+  },
+  "homepage": "https://github.com/AsaAyers/coffeescope",
+  "devDependencies": {
+    "jest-cli": "^0.4.2"
+  },
+  "dependencies": {
+    "coffee-script": "^1.9.2",
+    "globals": "^6.4.1"
+  }
+}
