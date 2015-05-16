@@ -7,7 +7,9 @@ class Scope
         if @_parent
             ScopeVariables.prototype = @_parent.getScopeVariables()
 
-        @_variables = new ScopeVariables()
+        @scopeChain = new ScopeVariables()
+        # Every scope has `this`
+        @scopeChain['this'] = {}
         @_references = []
         @_scopes = []
 
@@ -19,15 +21,19 @@ class Scope
     toJSON: ->
         # Create a new object to break the prototype chain when exporting.
         variables = {}
-        for own key, value of @_variables
+        for own key, value of @scopeChain
             variables[key] = value
 
-        tmp = { variables, references: @_references }
+        tmp = {
+            scopeChain: @scopeChain,
+            variables,
+            references: @_references
+        }
         if @_scopes.length
             tmp.scopes = @_scopes.map((s) -> s.toJSON())
         return tmp
 
-    getScopeVariables: -> @_variables
+    getScopeVariables: -> @scopeChain
 
     getParent: -> @_parent
 
@@ -38,15 +44,15 @@ class Scope
             throw new Error("#{name} is already defined in this scope")
 
         meta.name = name
-        @_variables[name] = meta
+        @scopeChain[name] = meta
 
     reference: (name, meta = {}) ->
         meta.name = name
         @_references.push(meta)
 
     get: (name, inCurrentScope = false) ->
-        if not inCurrentScope or name in Object.keys(@_variables)
-            @_variables[name]
+        if not inCurrentScope or name in Object.keys(@scopeChain)
+            @scopeChain[name]
 
 module.exports = class ScopeManager
     constructor: ({@globals, @environments}) ->
@@ -74,7 +80,11 @@ module.exports = class ScopeManager
 
     getCurrentScope: -> @_currentScope
 
-    pushScope: -> @_currentScope = @_currentScope.pushScope()
+    pushScope: ->
+        @_currentScope = @_currentScope.pushScope()
+        # CoffeeScript only uses function scope, so everything except global
+        # will always have an arguments variable
+        @define('arguments', {})
 
     popScope: -> @_currentScope = @_currentScope.getParent()
 
