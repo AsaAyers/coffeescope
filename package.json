@@ -1,6 +1,6 @@
 {
   "name": "coffeescope",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Scans CoffeeScript to locate all scopes, variables, and references",
   "main": "dist/coffeescope.js",
   "scripts": {
