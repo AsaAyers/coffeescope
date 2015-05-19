@@ -1,12 +1,18 @@
 
+leafNode = {}
 
 module.exports = class Scanner
 
     constructor: (@scopeManager) ->
 
     scan: (rootNode) ->
+        # The AST will actually transform itself in the process of compiling.
+        # This converts the implicit returns into explicit returns and seems to
+        # do something with comprehensions to make them scannable
+        rootNode.compile({ bare: true })
+
         @scopeManager.pushScope()
-        rootNode.eachChild @_scanNode
+        @scanChildren(rootNode)
         @scopeManager.popScope()
 
         # If this ever happens it indicates something is wrong in the code.
@@ -41,6 +47,10 @@ module.exports = class Scanner
     reference: (node) ->
         unwrapped = node.unwrapAll()
 
+        if not node.isAssignable() and not node.isComplex()
+            undefined
+        else
+            console.log('ref', @lastNode, unwrapped)
 
         if @getNodeName(node) is 'Class' and node.variable
             return @reference(node.variable)
@@ -71,9 +81,13 @@ module.exports = class Scanner
         @scopeManager.pushScope()
         callback()
         @scopeManager.popScope()
+        return leafNode
 
-    _scanNode: (node) =>
-        switch (@getNodeName(node))
+    scanNode: (node) =>
+        if not node? then throw new Error('Missing node')
+        @lastNode = @getNodeName(node)
+
+        x = switch (@getNodeName(node))
             when 'Arr' then @scanArr node
             when 'Assign' then @scanAssign node
             when 'Call' then @scanCall node
@@ -88,81 +102,71 @@ module.exports = class Scanner
             when 'Obj' then @scanObj(node)
             when 'Op' then @scanOp node
             when 'Return' then @scanReturn(node)
+            when 'Range' then @scanRange(node)
             when 'Parens' then @scanParens(node)
             # when 'Splat' then @checkExists node.name.base
             when 'Switch' then @scanSwitch node
             when 'Throw' then @scanThrow node
             when 'Try' then @scanTry node
-            when 'While' then @scanWhile(node)
-            else
-                @_scanChildren(node)
+
+        if x isnt leafNode
+            @scanChildren(node)
 
         undefined
 
-    _scanChildren: (node) ->
+    scanChildren: (node) ->
         node.eachChild (childNode) =>
-            @_scanNode(childNode) if childNode
-            true
-        undefined
-
+            @scanNode(childNode) if childNode
 
     scanIf: (node) ->
         if @getNodeName(node.condition) is 'Value'
             @reference(node.condition)
 
-        @_scanChildren(node)
-
     scanIndex: (node) ->
         @reference(node.index)
-        @_scanNode(node.index)
 
     scanObj: (node) ->
         for p in node.properties
             if p.isAssignable()
                 @reference(p)
-            else
-                @_scanNode(p)
 
     scanArr: (node) ->
         for obj in node.objects
             @reference(obj)
-            @_scanNode(obj)
 
     scanAssign: (node) ->
         { variable, value }  = node
 
-        if variable.isObject()
+        if variable.isObject?()
             @destructureObject(variable)
-        else if variable.isArray()
+        else if variable.isArray?()
             @destructureArray variable
         else
             # The isAssignable check will prevent processing strings:
             # { "key": "value" }
             # The above is an assignement, but `key` is not assignable.
-            if variable.isAssignable() and variable.properties.length is 0 and
+            if variable.isAssignable() and variable.properties?.length is 0 and
                     # context prevents picking up class properties
                     node.context isnt 'object'
 
                 @define(variable)
 
-            if variable.isAssignable() and variable.properties.length > 0
+            if variable.isAssignable() and variable.properties?.length > 0
+                console.log(node)
                 @reference(variable)
 
                 for { index } in variable.properties when index?
+                    console.log('index', index)
                     @reference(index)
 
         @reference(value)
-
-        return @_scanNode(value)
 
     scanCall: (node) ->
         { args, variable } = node
         for arg in args
             @reference(arg.unwrapAll())
-            @_scanNode(arg)
 
         @reference(variable)
-        @_scanNode(variable)
 
     scanClass: (node) ->
         # This may be an anonymous class
@@ -172,33 +176,17 @@ module.exports = class Scanner
         if node.parent
             @reference(node.parent)
 
-        @wrapInScope =>
-            # Class
-            #   Value "Foo"
-            #   Block # node.body
-            #     Value
-            #       Obj
-            #         Assign
-            #         Assign
-
-            node.body.eachChild (childNode) =>
-                if childNode
-                    name = @getNodeName(childNode)
-                    if name is 'Assign'
-                        @scanAssign childNode
-                    else if name is 'Value'
-                        # unwrapAll() here seems to unwrap Obj and give me the
-                        # Assigns that are needed
-                        for prop in childNode.unwrapAll().properties
-                            @_scanNode(prop)
+        return @wrapInScope =>
+            @scanChildren(node)
 
     scanCode: (node) ->
-        @wrapInScope =>
+        return @wrapInScope =>
             for { name, value }, paramIndex in node.params
                 @paramIndex = paramIndex
                 # Complex values seem to invovle property access
                 # this.whatever = ... # complex
                 # whatever = ... # not complex
+
                 if name.isAssignable() and not name.isComplex()
                     @define(name, {
                         shadow: true
@@ -208,33 +196,16 @@ module.exports = class Scanner
                         @scanDestructure(name)
 
                 if value?
-                    @_scanNode(value)
+                    @scanNode(value)
 
             @paramIndex = undefined
-
-            # I don't like that calling node.body.makeReturn() changes the AST
-            # Based on the implementation of Block::makeReturn() I don't think
-            # this will modify the AST.
-            expressions = node.body.expressions
-            returnIndex = expressions.length
-            while returnIndex--
-                expr = expressions[returnIndex]
-                if @getNodeName(expr) isnt 'Comment'
-                    break
-
-            for exp, index in expressions
-                if index is returnIndex
-                    exp = exp.makeReturn()
-                @_scanNode(exp)
+            @scanNode(node.body)
 
     scanExistence: (node) ->
         @reference(node.expression)
-        @_scanNode(node.expression)
 
     scanFor: (node) ->
-        { source, name, index } = node
-
-        @reference(source)
+        { source, name, index, body } = node
 
         if name?
             if name.isComplex()
@@ -248,35 +219,38 @@ module.exports = class Scanner
             else
                 @define(index)
 
-        @_scanNode(node.body)
-        if node.guard
-            @_scanNode(node.guard)
+        @reference(source)
+
+        @scanNode(source)
+        @scanNode(body)
+
+        return leafNode
 
     scanOp: (node) ->
         { first, second } = node
+
         @reference first
 
         if second?
             @reference second
-        @_scanChildren(node)
 
     scanReturn: (node) ->
         if node.expression
             @reference(node.expression)
-            @_scanNode(node.expression)
+
+    scanRange: (node) ->
+        @reference(node.from)
+        @reference(node.to)
 
     scanParens: (node) ->
         for exp in node.body.expressions
             @reference(exp)
-            @_scanNode(exp)
 
     scanSwitch: (node) ->
         @reference(node.subject)
-        @_scanChildren(node)
 
     scanThrow: (node) ->
         @reference(node.expression)
-        @_scanChildren(node.expression)
 
     scanTry: (node) ->
         { errorVariable } = node
@@ -285,11 +259,6 @@ module.exports = class Scanner
                 @scanDestructure(errorVariable)
             else
                 @define(errorVariable)
-
-        @_scanChildren(node)
-
-    scanWhile: (node) ->
-        @_scanNode(node.body)
 
     destructureObject: (node) ->
         for prop in node.unwrapAll().properties

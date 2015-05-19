@@ -3,17 +3,22 @@ jest.autoMockOff()
 describe 'Scanner references', ->
     [ CoffeeScript, scanner, ScopeManager, Scanner ] = []
 
+    jsonFilter = (key, value) ->
+        if key in [ 'scopeChain', 'this', 'arguments', 'locationData' ]
+            return undefined
+        return value
+
     scan = (source, { logAst, logScope } = {}) ->
         ast = CoffeeScript.nodes(source)
-        if logAst
-            console.log(ast.toString())
 
         scopeManager = new ScopeManager({})
         scanner = new Scanner(scopeManager)
         globalScope = scanner.scan(ast)
 
+        if logAst
+            console.log(ast.toString())
         if logScope
-            console.log(JSON.stringify(globalScope.scopes[0], undefined, 2))
+            console.log(JSON.stringify(globalScope.scopes[0], jsonFilter, 2))
         # Return the root scope
         return globalScope.scopes[0]
 
@@ -293,11 +298,6 @@ describe 'Scanner references', ->
 
     it 'code-sample-9', ->
         root = scan('''
-        if process.env.NODE_ENV isnt "production"
-            # Creating the error here preserves the stack trace.
-            err = generateError()
-
-        p = Q.when($.getJSON(url))
         p = p.fail (xhr) =>
             throw err or generateError()
         ''')
@@ -349,3 +349,12 @@ describe 'Scanner references', ->
         ''')
 
         expect(root).toReference('prefix')
+
+    it 'code-sample-14', ->
+        root = scan('''
+        { first_column, last_column } = token[2]
+        actual_token = line[first_column..last_column]
+        ''')
+
+        expect(root).toReference('first_column')
+        expect(root).toReference('last_column')

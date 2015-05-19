@@ -10,6 +10,10 @@ class Scope
         @scopeChain = new ScopeVariables()
         # Every scope has `this`
         @scopeChain['this'] = {}
+        # CoffeeScript only uses function scope, so everything except global
+        # will always have an arguments variable
+        if @_parent
+            @scopeChain['arguments'] = {}
         @_references = []
         @_scopes = []
 
@@ -82,9 +86,6 @@ module.exports = class ScopeManager
 
     pushScope: ->
         @_currentScope = @_currentScope.pushScope()
-        # CoffeeScript only uses function scope, so everything except global
-        # will always have an arguments variable
-        @define('arguments', {})
 
     popScope: -> @_currentScope = @_currentScope.getParent()
 
