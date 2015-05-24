@@ -4,18 +4,8 @@
   "description": "Scans CoffeeScript to locate all scopes, variables, and references",
   "main": "dist/coffeescope.js",
   "scripts": {
-    "test": "jest",
+    "test": "jasmine-node --coffee src/",
     "prepublish": "cake prepublish"
-  },
-  "jest": {
-    "scriptPreprocessor": "preprocessor.js",
-    "testFileExtensions": [
-      "coffee",
-      "js"
-    ],
-    "unmockedModulePathPatterns": [
-      "node_modules/globals"
-    ]
   },
   "repository": {
     "type": "git",
@@ -33,7 +23,8 @@
     "coffee-script": "^1.9.2",
     "coffeeify": "^1.1.0",
     "derequire": "^2.0.0",
-    "jest-cli": "^0.4.2"
+    "jasmine-node": "^1.14.5",
+    "jasmine-only": "^0.1.1"
   },
   "dependencies": {
     "globals": "^6.4.1"

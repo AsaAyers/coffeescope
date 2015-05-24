@@ -1,4 +1,3 @@
-jest.autoMockOff()
 
 wrapInScope = (scopeManager, callback) ->
     try

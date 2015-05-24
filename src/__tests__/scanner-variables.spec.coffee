@@ -1,4 +1,3 @@
-jest.autoMockOff()
 
 describe 'Scanner variables', ->
     [ CoffeeScript, scanner, ScopeManager, Scanner ] = []
