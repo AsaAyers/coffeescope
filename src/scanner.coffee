@@ -49,8 +49,6 @@ module.exports = class Scanner
 
         if not node.isAssignable() and not node.isComplex()
             undefined
-        else
-            console.log('ref', @lastNode, unwrapped)
 
         if @getNodeName(node) is 'Class' and node.variable
             return @reference(node.variable)
@@ -152,11 +150,9 @@ module.exports = class Scanner
                 @define(variable)
 
             if variable.isAssignable() and variable.properties?.length > 0
-                console.log(node)
                 @reference(variable)
 
                 for { index } in variable.properties when index?
-                    console.log('index', index)
                     @reference(index)
 
         @reference(value)

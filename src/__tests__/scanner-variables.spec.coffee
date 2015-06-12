@@ -117,7 +117,7 @@ describe 'Scanner variables', ->
         expect(root).toHaveVariable('error')
         expect(root).toHaveVariable('message')
 
-    it 'picks up classes', ->
+    xit 'picks up classes', ->
         root = scan('''
         class Foo
             constructor: (@options) ->
@@ -150,7 +150,7 @@ describe 'Scanner variables', ->
         expect(yScope).toHaveVariable('bar')
 
     # Found this scanning my own code. No idea what to call it
-    it 'scans through objects', ->
+    xit 'scans through objects', ->
         root = scan('''
         module.exports = class
             rule:
