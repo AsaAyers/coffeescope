@@ -18,14 +18,13 @@ describe 'Scanner variables', ->
         return value
 
     scan = (source, { logAst, logScope } = {}) ->
-        ast = CoffeeScript.nodes(source)
-        if logAst
-            console.log(ast.toString())
-
         scopeManager = new ScopeManager({})
         scanner = new Scanner(scopeManager)
+        ast = CoffeeScript.nodes(source)
         globalScope = scanner.scan(ast)
 
+        if logAst
+            console.log(ast.toString())
         if logScope
             console.log(JSON.stringify(globalScope.scopes[0], jsonFilter, 2))
         # Return the root scope
@@ -91,7 +90,7 @@ describe 'Scanner variables', ->
         expect(root).toHaveVariable('bar')
         expect(root).toHaveVariable('baz')
 
-    it 'picks up function parameters', ->
+    iit 'picks up function parameters', ->
         root = scan('''
         fn = (a, b = 2, @c) ->
             d = undefined
@@ -169,7 +168,7 @@ describe 'Scanner variables', ->
         expect(yScope).toHaveVariable('bar')
 
     # Found this scanning my own code. No idea what to call it
-    xit 'scans through objects', ->
+    it 'scans through objects', ->
         root = scan('''
         module.exports = class
             rule:
@@ -179,9 +178,11 @@ describe 'Scanner variables', ->
 
         expect(root).toHaveScopes()
         clsScope = root.scopes[0]
-        expect(clsScope).toHaveScopes()
 
-        environmentScope = clsScope.scopes[0]
+        # There is an empty scope for the constructor
+        expect(clsScope).toHaveScopes(2)
+
+        environmentScope = clsScope.scopes[1]
         expect(environmentScope).toHaveVariable('cfg')
 
 

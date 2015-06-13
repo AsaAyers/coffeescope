@@ -1,5 +1,6 @@
 
 leafNode = {}
+hasBeenScanned = '_scanner_' + Math.random()
 
 module.exports = class Scanner
 
@@ -11,9 +12,9 @@ module.exports = class Scanner
         # do something with comprehensions to make them scannable
         rootNode.compile({ bare: true })
 
-        @scopeManager.pushScope()
-        @scanChildren(rootNode)
-        @scopeManager.popScope()
+        @debugStack = []
+        @wrapInScope =>
+            @scanChildren(rootNode)
 
         # If this ever happens it indicates something is wrong in the code.
         # Probably not something a user could ever trigger.
@@ -83,7 +84,17 @@ module.exports = class Scanner
 
     scanNode: (node) =>
         if not node? then throw new Error('Missing node')
+
         @lastNode = @getNodeName(node)
+        if node[hasBeenScanned]
+            console.log(node[hasBeenScanned])
+            console.log('now\n===')
+            console.log(@debugStack)
+            console.log(node)
+            throw new Error("Scanned the same #{@lastNode} more than once")
+        node[hasBeenScanned] = @debugStack.slice()
+
+        @debugStack.push(@lastNode)
 
         x = switch (@getNodeName(node))
             when 'Arr' then @scanArr node
@@ -110,6 +121,7 @@ module.exports = class Scanner
         if x isnt leafNode
             @scanChildren(node)
 
+        @debugStack.pop()
         undefined
 
     scanChildren: (node) ->
@@ -172,6 +184,7 @@ module.exports = class Scanner
         if node.parent
             @reference(node.parent)
 
+        console.log('scanClass')
         return @wrapInScope =>
             @scanChildren(node)
 
