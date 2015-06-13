@@ -2,6 +2,21 @@
 describe 'Scanner variables', ->
     [ CoffeeScript, scanner, ScopeManager, Scanner ] = []
 
+    jsonFilter = (key, value) ->
+        if key in [ 'scopeChain', 'this', 'arguments', 'locationData' ]
+            return undefined
+        if key is 'references' and value.length is 0
+            return undefined
+        if key is 'variables'
+            keys = Object.keys(value)
+            keys.shift() if keys[0] is 'this'
+            keys.shift() if keys[0] is 'arguments'
+
+            if keys.length is 0
+                return undefined
+
+        return value
+
     scan = (source, { logAst, logScope } = {}) ->
         ast = CoffeeScript.nodes(source)
         if logAst
@@ -12,7 +27,7 @@ describe 'Scanner variables', ->
         globalScope = scanner.scan(ast)
 
         if logScope
-            console.log(JSON.stringify(globalScope.scopes[0], undefined, 2))
+            console.log(JSON.stringify(globalScope.scopes[0], jsonFilter, 2))
         # Return the root scope
         return globalScope.scopes[0]
 
@@ -29,7 +44,11 @@ describe 'Scanner variables', ->
                         "Expected scope to have variables"
                         "Expected scope not to have variables"
                     ]
-                return Object.keys(this.actual.variables).length > 0
+
+                keys = Object.keys(this.actual.variables)
+                keys.shift() if keys[0] is 'this'
+                keys.shift() if keys[0] is 'arguments'
+                return keys.length > 0
 
             toHaveVariable: (expected) ->
                 this.message = ->
@@ -117,7 +136,7 @@ describe 'Scanner variables', ->
         expect(root).toHaveVariable('error')
         expect(root).toHaveVariable('message')
 
-    xit 'picks up classes', ->
+    it 'picks up classes', ->
         root = scan('''
         class Foo
             constructor: (@options) ->

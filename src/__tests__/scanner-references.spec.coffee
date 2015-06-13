@@ -5,6 +5,16 @@ describe 'Scanner references', ->
     jsonFilter = (key, value) ->
         if key in [ 'scopeChain', 'this', 'arguments', 'locationData' ]
             return undefined
+        if key is 'references' and value.length is 0
+            return undefined
+        if key is 'variables'
+            keys = Object.keys(value)
+            keys.shift() if keys[0] is 'this'
+            keys.shift() if keys[0] is 'arguments'
+
+            if keys.length is 0
+                return undefined
+
         return value
 
     scan = (source, { logAst, logScope } = {}) ->
